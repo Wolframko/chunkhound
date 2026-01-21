@@ -125,6 +125,30 @@ end
         comments = [c for c in chunks if "comment" in c.chunk_type.value.lower()]
         assert len(comments) > 0
 
+    def test_shebang_detection(self, parser_factory):
+        """Test that shebang comments are properly detected as shebang type."""
+        code = """#!/usr/bin/env ruby
+
+class Foo
+  def bar
+  end
+end
+"""
+        parser = parser_factory.create_parser(Language.RUBY)
+
+        chunks = parser.parse_content(code, "test.rb", FileId(1))
+
+        assert chunks is not None
+
+        # Find comment chunks
+        comments = [c for c in chunks if "comment" in c.chunk_type.value.lower()]
+        assert len(comments) >= 1
+
+        # Check for shebang comment type - this is the fix we made
+        shebang_comments = [c for c in comments if c.metadata.get("comment_type") == "shebang"]
+        assert len(shebang_comments) == 1
+        assert shebang_comments[0].metadata.get("is_doc_comment") is True
+
     def test_superclass_detection(self, parser_factory, basic_ruby_file):
         """Test that superclass is detected in class definitions."""
         parser = parser_factory.create_parser(Language.RUBY)

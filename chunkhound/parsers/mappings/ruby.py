@@ -349,37 +349,39 @@ class RubyMapping(BaseMapping):
                 comment_node = captures["definition"]
                 comment_text = self.get_node_text(comment_node, source)
 
-                # Clean and analyze comment
-                clean_text = self.clean_comment_text(comment_text)
-
                 # Detect special comment types
                 is_doc = False
                 comment_type = "regular"
 
-                if clean_text:
-                    upper_text = clean_text.upper()
-                    if any(
-                        prefix in upper_text
-                        for prefix in ["TODO:", "FIXME:", "HACK:", "NOTE:", "WARNING:"]
-                    ):
-                        comment_type = "annotation"
-                        is_doc = True
-                    elif clean_text.startswith("#!"):
-                        comment_type = "shebang"
-                        is_doc = True
-                    elif len(clean_text) > 50 and any(
-                        word in clean_text.lower()
-                        for word in [
-                            "param",
-                            "return",
-                            "example",
-                            "usage",
-                            "@param",
-                            "@return",
-                        ]
-                    ):
-                        comment_type = "documentation"
-                        is_doc = True
+                # Check for shebang BEFORE cleaning (since cleaning strips the #)
+                if comment_text.strip().startswith("#!"):
+                    comment_type = "shebang"
+                    is_doc = True
+                else:
+                    # Clean and analyze comment
+                    clean_text = self.clean_comment_text(comment_text)
+
+                    if clean_text:
+                        upper_text = clean_text.upper()
+                        if any(
+                            prefix in upper_text
+                            for prefix in ["TODO:", "FIXME:", "HACK:", "NOTE:", "WARNING:"]
+                        ):
+                            comment_type = "annotation"
+                            is_doc = True
+                        elif len(clean_text) > 50 and any(
+                            word in clean_text.lower()
+                            for word in [
+                                "param",
+                                "return",
+                                "example",
+                                "usage",
+                                "@param",
+                                "@return",
+                            ]
+                        ):
+                            comment_type = "documentation"
+                            is_doc = True
 
                 metadata["comment_type"] = comment_type
                 if is_doc:
