@@ -1019,6 +1019,31 @@ class UniversalParser:
 
         return [merged_chunk]
 
+    def _are_siblings(self, chunk1: UniversalChunk, chunk2: UniversalChunk) -> bool:
+        """Check if two chunks are siblings (share same parent).
+
+        Returns True if both chunks have the same parent node type and parent start line.
+        This indicates they're methods/functions within the same class/module.
+
+        Args:
+            chunk1: First chunk to compare
+            chunk2: Second chunk to compare
+
+        Returns:
+            True if chunks are siblings, False otherwise
+        """
+        parent1_type = chunk1.metadata.get("parent_node_type")
+        parent1_start = chunk1.metadata.get("parent_start_line")
+        parent2_type = chunk2.metadata.get("parent_node_type")
+        parent2_start = chunk2.metadata.get("parent_start_line")
+
+        # If parent info is missing, assume not siblings
+        if not all([parent1_type, parent1_start, parent2_type, parent2_start]):
+            return False
+
+        # Same parent if both type and start line match
+        return parent1_type == parent2_type and parent1_start == parent2_start
+
     def _greedy_merge_pass(
         self, chunks: list[UniversalChunk], content: str
     ) -> list[UniversalChunk]:
@@ -1090,6 +1115,13 @@ class UniversalParser:
 
             metrics = ChunkMetrics.from_content(combined_content)
             estimated_tokens = self._estimate_tokens(combined_content)
+
+            # Don't merge siblings (methods/functions in same class/module)
+            # These are discrete semantic units even if close together
+            if self._are_siblings(current_chunk, next_chunk):
+                result.append(current_chunk)
+                current_chunk = next_chunk
+                continue
 
             # Check for semantic incompatibility within same concept type
             # For example, Makefile variables and rules are both DEFINITION but shouldn't merge

@@ -162,6 +162,39 @@ end
         assert len(admin_class) == 1
         assert admin_class[0].metadata.get("superclass") == "User"
 
+    def test_all_methods_parsed(self, parser_factory, basic_ruby_file):
+        """Test that ALL methods are parsed, including private methods and methods after other methods."""
+        parser = parser_factory.create_parser(Language.RUBY)
+
+        chunks = parser.parse_content(basic_ruby_file, "test.rb", FileId(1))
+
+        assert chunks is not None
+
+        # Find all method chunks
+        methods = [c for c in chunks if c.metadata.get("kind") == "method"]
+        method_map = {c.symbol: (c.start_line, c.end_line) for c in methods}
+
+        # Verify we have all 8 expected methods (including duplicates like initialize)
+        assert len(methods) == 8, f"Expected 8 methods, found {len(methods)}"
+
+        # Verify specific methods that were previously missing or had wrong ranges
+        # These tests ensure the sibling merge fix is working
+        assert "format_string" in method_map
+        assert "process" in method_map, "process method in Utils module should be found"
+        assert "normalize_email" in method_map, "normalize_email private method should be found"
+        assert "admin?" in method_map, "admin? method in AdminUser should be found"
+
+        # Verify line ranges are correct (not extended beyond actual method)
+        # create should end at line 37, not absorb normalize_email at line 41
+        create_methods = [c for c in methods if c.symbol == "create"]
+        assert len(create_methods) == 1
+        assert create_methods[0].end_line <= 37, "create method should not extend beyond line 37"
+
+        # AdminUser's initialize should end around line 51, not absorb admin? at line 53
+        admin_inits = [c for c in methods if c.symbol == "initialize" and c.start_line > 45]
+        assert len(admin_inits) == 1
+        assert admin_inits[0].end_line <= 51, "AdminUser initialize should not extend beyond line 51"
+
 
 class TestImportResolution:
     """Test Ruby import/require resolution."""
