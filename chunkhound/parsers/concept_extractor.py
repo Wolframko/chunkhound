@@ -167,6 +167,12 @@ class ConceptExtractor:
         start_line = def_node.start_point[0] + 1
         end_line = def_node.end_point[0] + 1
 
+        # Store parent information to detect siblings during merge
+        # This helps prevent merging methods/functions in the same class/module
+        if def_node.parent:
+            metadata["parent_node_type"] = def_node.parent.type
+            metadata["parent_start_line"] = def_node.parent.start_point[0] + 1
+
         return UniversalChunk(
             concept=concept,
             name=name,
